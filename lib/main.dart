@@ -11,7 +11,7 @@ import 'package:image/image.dart' as img;
 import 'dart:io';
 
 void main() {
-runApp(MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -176,7 +176,10 @@ class CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      List<img.Image> resizedImages = images.map((image) => img.copyResize(image!, width: 600, height: 900)).toList();
+      List<img.Image> resizedImages =
+          images
+              .map((image) => img.copyResize(image!, width: 600, height: 900))
+              .toList();
 
       img.Image combinedImage = img.Image(width: 1200, height: 1800);
 
@@ -201,19 +204,19 @@ class CameraScreenState extends State<CameraScreen> {
   Future<void> _takePicture() async {
     try {
       final XFile file = await widget.controller.takePicture();
+      await Gal.putImage(file.path);
       final imageFile = File(file.path);
       _imagePaths.add(imageFile.path);
       _pictureCount++;
       if (_pictureCount == 4) {
         _combineImages();
+        if (mounted) Navigator.of(context).pop();
       }
-       _startCountdown();
+      _startCountdown();
     } catch (e) {
       print(e);
     }
   }
-
-  
 
   @override
   Widget build(BuildContext context) {
@@ -237,5 +240,6 @@ class CameraScreenState extends State<CameraScreen> {
         )
         : const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
+
   bool get _isCameraInitialized => widget.controller.value.isInitialized;
 }
