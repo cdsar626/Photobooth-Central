@@ -128,6 +128,7 @@ class CameraScreen extends StatefulWidget {
 class CameraScreenState extends State<CameraScreen> {
   int _countdown = 3;
   Timer? _timer;
+  int _picturesTaken = 0;
 
   @override
   void initState() {
@@ -142,18 +143,26 @@ class CameraScreenState extends State<CameraScreen> {
           _countdown--;
         });
       } else {
-        timer.cancel();
         _takePicture();
+        _countdown = 3;
+        _picturesTaken++;
+        if (_picturesTaken >= 4) {
+          timer.cancel();
+          if (mounted) Navigator.of(context).pop();
+        }
       }
     });
   }
 
   Future<void> _takePicture() async {
     try {
-      final XFile file = await widget.controller.takePicture();
-      await Gal.putImage(file.path);
-      if (mounted) Navigator.of(context).pop();
-      print('Picture saved to gallery!');
+      if (_isCameraInitialized) {
+        final XFile file = await widget.controller.takePicture();
+        await Gal.putImage(file.path);
+        print('Picture saved to gallery!');
+      } else {
+        print("Camera not initialized!");
+      }
     } catch (e) {
       print(e);
     }
