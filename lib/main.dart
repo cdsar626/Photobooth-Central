@@ -132,6 +132,7 @@ class CameraScreenState extends State<CameraScreen> {
   int _countdown = 3;
   List<String> _imagePaths = [];
   int _pictureCount = 0;
+  bool _isFlashing = false;
 
   @override
   void initState() {
@@ -204,18 +205,31 @@ class CameraScreenState extends State<CameraScreen> {
   Future<void> _takePicture() async {
     try {
       final XFile file = await widget.controller.takePicture();
-      await Gal.putImage(file.path);
       final imageFile = File(file.path);
+      await Gal.putImage(file.path);
       _imagePaths.add(imageFile.path);
       _pictureCount++;
       if (_pictureCount == 4) {
-        _combineImages();
         if (mounted) Navigator.of(context).pop();
+        _combineImages();
+      } else {
+        _startCountdown();
       }
-      _startCountdown();
+      _flashScreen();
     } catch (e) {
       print(e);
     }
+  }
+
+  Future<void> _flashScreen() async {
+    setState(() {
+      _isFlashing = true;
+    });
+    await Future.delayed(const Duration(milliseconds: 100), () {
+      setState(() {
+        _isFlashing = false;
+      });
+    });
   }
 
   @override
@@ -235,6 +249,14 @@ class CameraScreenState extends State<CameraScreen> {
                   style: const TextStyle(fontSize: 100, color: Colors.white),
                 ),
               ),
+              if (_isFlashing)
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.white.withOpacity(0.8),
+                )
+              else
+                Container(),
             ],
           ),
         )
