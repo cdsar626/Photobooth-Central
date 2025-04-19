@@ -1,13 +1,19 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:async';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:gal/gal.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(home: CameraApp());
@@ -15,11 +21,13 @@ class MyApp extends StatelessWidget {
 }
 
 class CameraApp extends StatefulWidget {
+  const CameraApp({super.key});
+
   @override
-  _CameraAppState createState() => _CameraAppState();
+  CameraAppState createState() => CameraAppState();
 }
 
-class _CameraAppState extends State<CameraApp> {
+class CameraAppState extends State<CameraApp> {
   CameraController? _controller;
   Future<void>? _initializeControllerFuture;
   bool _isCameraInitialized = false;
@@ -66,16 +74,37 @@ class _CameraAppState extends State<CameraApp> {
           if (snapshot.connectionState == ConnectionState.done &&
               _isCameraInitialized) {
             return Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder:
-                          (context) => CameraScreen(controller: _controller!),
-                    ),
-                  );
-                },
-                child: const Text("Open Camera"),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  CameraScreen(controller: _controller!),
+                        ),
+                      );
+                    },
+                    child: const Text("Open Camera"),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final pickedFile = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                      );
+                      if (pickedFile != null) {
+                        // Handle the picked image, e.g., display it or upload it.
+                        print("Image selected: ${pickedFile.path}");
+                      } else {
+                        print("No image selected.");
+                      }
+                    },
+                    child: const Text("Open Gallery"),
+                  ),
+                ],
               ),
             );
           } else {
@@ -93,10 +122,10 @@ class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key, required this.controller});
 
   @override
-  _CameraScreenState createState() => _CameraScreenState();
+  CameraScreenState createState() => CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class CameraScreenState extends State<CameraScreen> {
   int _countdown = 3;
   Timer? _timer;
 
@@ -121,8 +150,10 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _takePicture() async {
     try {
-      await widget.controller.takePicture();
-      Navigator.of(context).pop();
+      final XFile file = await widget.controller.takePicture();
+      await Gal.putImage(file.path);
+      if (mounted) Navigator.of(context).pop();
+      print('Picture saved to gallery!');
     } catch (e) {
       print(e);
     }
@@ -155,7 +186,6 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         )
         : const Scaffold(body: Center(child: CircularProgressIndicator()));
-    ;
   }
 
   bool get _isCameraInitialized => widget.controller.value.isInitialized;
