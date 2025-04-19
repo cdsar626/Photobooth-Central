@@ -5,10 +5,13 @@ import 'package:camera/camera.dart';
 import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:gal/gal.dart';
+import 'package:image/image.dart' as img;
+import 'dart:io';
 
 void main() {
-  runApp(MyApp());
+runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -127,8 +130,8 @@ class CameraScreen extends StatefulWidget {
 
 class CameraScreenState extends State<CameraScreen> {
   int _countdown = 3;
-  Timer? _timer;
-  int _picturesTaken = 0;
+  List<String> _imagePaths = [];
+  int _pictureCount = 0;
 
   @override
   void initState() {
@@ -137,42 +140,80 @@ class CameraScreenState extends State<CameraScreen> {
   }
 
   void _startCountdown() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_countdown > 0) {
+    if (_pictureCount < 4) {
+      _countdown = 3; // Reset countdown before taking the next picture
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         setState(() {
           _countdown--;
         });
-      } else {
-        _takePicture();
-        _countdown = 3;
-        _picturesTaken++;
-        if (_picturesTaken >= 4) {
+        if (_countdown <= 0) {
           timer.cancel();
-          if (mounted) Navigator.of(context).pop();
+          _takePicture();
         }
+      });
+    }
+  }
+
+  Timer? _timer;
+  Future<void> _combineImages() async {
+    if (_imagePaths.length != 4) {
+      print('Error: Need 4 images to combine.');
+      return;
+    }
+
+    print('Combining images...');
+    final combinedImagePath =
+        '${(await getApplicationDocumentsDirectory()).path}/combined_image.png';
+
+    try {
+      List<img.Image?> images = [];
+      for (var path in _imagePaths) {
+        images.add(img.decodeImage(File(path).readAsBytesSync()));
       }
-    });
+
+      if (images.any((image) => image == null)) {
+        print('Error: Could not decode one or more images.');
+        return;
+      }
+
+      List<img.Image> resizedImages = images.map((image) => img.copyResize(image!, width: 600, height: 900)).toList();
+
+      img.Image combinedImage = img.Image(width: 1200, height: 1800);
+
+      img.compositeImage(combinedImage, resizedImages[0], dstX: 0, dstY: 0);
+      img.compositeImage(combinedImage, resizedImages[1], dstX: 600, dstY: 0);
+      img.compositeImage(combinedImage, resizedImages[2], dstX: 0, dstY: 900);
+      img.compositeImage(combinedImage, resizedImages[3], dstX: 600, dstY: 900);
+
+      List<int> png = img.encodePng(combinedImage);
+      File(combinedImagePath).writeAsBytesSync(png);
+
+      await Gal.putImage(combinedImagePath);
+      print('Combined image saved to gallery!');
+
+      _imagePaths.clear();
+      _pictureCount = 0;
+    } catch (e) {
+      print("Error combining images: $e");
+    }
   }
 
   Future<void> _takePicture() async {
     try {
-      if (_isCameraInitialized) {
-        final XFile file = await widget.controller.takePicture();
-        await Gal.putImage(file.path);
-        print('Picture saved to gallery!');
-      } else {
-        print("Camera not initialized!");
+      final XFile file = await widget.controller.takePicture();
+      final imageFile = File(file.path);
+      _imagePaths.add(imageFile.path);
+      _pictureCount++;
+      if (_pictureCount == 4) {
+        _combineImages();
       }
+       _startCountdown();
     } catch (e) {
       print(e);
     }
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -196,6 +237,5 @@ class CameraScreenState extends State<CameraScreen> {
         )
         : const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
-
   bool get _isCameraInitialized => widget.controller.value.isInitialized;
 }
